@@ -135,7 +135,13 @@ public class Viewer {
                                     ( ( y - vertex2.getY() ) * ( vertex1.getX() - vertex2.getX() ) +
                                             ( vertex1.getY() - vertex2.getY() ) * ( vertex2.getX() - x ) ) / triangleArea;
 
-                            if ( b1 >= 0 && b1 <= 1 && b2 >= 0 && b2 <= 1 && b3 >= 0 && b3 <= 1 ) {
+                            if ( b1 >= 0
+                                    && b1 <= 1
+                                    && b2 >= 0
+                                    && b2 <= 1
+                                    && b3 >= 0
+                                    && b3 <= 1 ) {
+
                                 double depth = b1 * vertex1.getZ() + b2 * vertex2.getZ() + b3 * vertex3.getZ();
                                 int zIndex = y * img.getWidth() + x;
 
