@@ -1,9 +1,10 @@
 import shapes.Triangle;
+import shapes.TripleMatrix;
 import shapes.Vertex;
 
 import javax.swing.*;
 import java.awt.*;
-import java.awt.geom.Path2D;
+import java.awt.geom.*;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -31,15 +32,39 @@ public class Viewer {
 
                 List<Triangle> tetrahedron = createTetrahedron();
 
+                double heading = Math.toRadians( headingSlider.getValue() );
+                TripleMatrix headingTransform = new TripleMatrix( new double[] {
+                        Math.cos( heading ), 0, Math.sin( heading ),
+                        0, 1, 0,
+                        -Math.sin( heading ), 0, Math.cos( heading )
+                    }
+                );
+
+                double pitch = Math.toRadians( pitchSlider.getValue() );
+                TripleMatrix pitchTransform = new TripleMatrix( new double[] {
+                        1, 0, 0,
+                        0, Math.cos( pitch ), Math.sin( pitch ),
+                        0, -Math.sin( pitch ), Math.cos( pitch )
+                    }
+                );
+
+                TripleMatrix transform = headingTransform.multiply( pitchTransform );
+
+
                 graphics2D.translate( getWidth() / 2, getHeight() / 2 );
                 graphics2D.setColor( Color.WHITE );
 
                 for ( Triangle triangle : tetrahedron ) {
+                    Vertex vertex1 = transform.transform( triangle.getVertex1() );
+                    Vertex vertex2 = transform.transform( triangle.getVertex2() );
+                    Vertex vertex3 = transform.transform( triangle.getVertex3() );
+
                     Path2D path = new Path2D.Double();
-                    path.moveTo( triangle.getVertex1().getX(), triangle.getVertex1().getY() );
-                    path.lineTo( triangle.getVertex2().getX(), triangle.getVertex2().getY() );
-                    path.lineTo( triangle.getVertex3().getX(), triangle.getVertex3().getY() );
+                    path.moveTo( vertex1.getX(), vertex1.getY() );
+                    path.lineTo( vertex2.getX(), vertex2.getY() );
+                    path.lineTo( vertex3.getX(), vertex3.getY() );
                     path.closePath();
+
                     graphics2D.draw( path );
                 }
             }
@@ -72,6 +97,9 @@ public class Viewer {
             }
         };
         pane.add( renderPanel, BorderLayout.CENTER );
+
+        headingSlider.addChangeListener( e -> renderPanel.repaint() );
+        pitchSlider.addChangeListener( e -> renderPanel.repaint() );
 
         frame.setSize( 400, 400 );
         frame.setVisible( true );
