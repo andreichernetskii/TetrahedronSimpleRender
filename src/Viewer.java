@@ -39,29 +39,11 @@ public class Viewer {
         return new JPanel() {
             @Override
             public void paintComponent( Graphics graphics ) {
-                Graphics2D graphics2D = ( Graphics2D ) graphics;
-                graphics2D.setColor( Color.BLACK );
-                graphics2D.fillRect( 0, 0, getWidth(), getHeight() );
+                Graphics2D graphics2D = initializeGraphics( graphics );
 
                 List<Triangle> tetrahedron = createTetrahedron();
 
-                double heading = Math.toRadians( headingSlider.getValue() );
-                TripleMatrix headingTransform = new TripleMatrix( new double[]{
-                        Math.cos( heading ), 0, Math.sin( heading ),
-                        0, 1, 0,
-                        -Math.sin( heading ), 0, Math.cos( heading )
-                }
-                );
-
-                double pitch = Math.toRadians( pitchSlider.getValue() );
-                TripleMatrix pitchTransform = new TripleMatrix( new double[]{
-                        1, 0, 0,
-                        0, Math.cos( pitch ), Math.sin( pitch ),
-                        0, -Math.sin( pitch ), Math.cos( pitch )
-                }
-                );
-
-                TripleMatrix transform = headingTransform.multiply( pitchTransform );
+                TripleMatrix transform = createTransformMatrix( headingSlider, pitchSlider );
 
                 BufferedImage img = new BufferedImage( getWidth(), getHeight(), BufferedImage.TYPE_INT_ARGB );
 
@@ -154,6 +136,43 @@ public class Viewer {
                     }
                     graphics2D.drawImage( img, 0, 0, null );
                 }
+            }
+
+            private TripleMatrix createTransformMatrix( JSlider headingSlider, JSlider pitchSlider ) {
+                double heading = Math.toRadians( headingSlider.getValue() );
+                double pitch = Math.toRadians( pitchSlider.getValue() );
+
+                TripleMatrix headingTransform = createHeadingTransform( heading );
+                TripleMatrix pitchTransform = createPitchTransform( pitch );
+
+                return headingTransform.multiply( pitchTransform );
+            }
+
+            private TripleMatrix createPitchTransform( double pitch ) {
+                return new TripleMatrix( new double[]{
+                        1, 0, 0,
+                        0, Math.cos( pitch ), Math.sin( pitch ),
+                        0, -Math.sin( pitch ), Math.cos( pitch )
+                   }
+                );
+            }
+
+            private TripleMatrix createHeadingTransform( double heading ) {
+                return new TripleMatrix( new double[]{
+                        Math.cos( heading ), 0, Math.sin( heading ),
+                        0, 1, 0,
+                        -Math.sin( heading ), 0, Math.cos( heading )
+                    }
+                );
+            }
+
+            private Graphics2D initializeGraphics( Graphics graphics ) {
+                Graphics2D graphics2D = ( Graphics2D ) graphics;
+
+                graphics2D.setColor( Color.BLACK );
+                graphics2D.fillRect( 0, 0, getWidth(), getHeight() );
+
+                return graphics2D;
             }
 
             private void setManualTranslationsFor( Vertex vertex ) {
