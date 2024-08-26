@@ -67,7 +67,7 @@
       <option name="presentableId" value="Default" />
       <updated>1724576956660</updated>
       <workItem from="1724576958985" duration="15073000" />
-      <workItem from="1724660138374" duration="1749000" />
+      <workItem from="1724660138374" duration="4211000" />
     </task>
     <task id="LOCAL-00001" summary="- create project&#10;- added tetrahedron drawing">
       <created>1724586457817</created>
@@ -104,7 +104,14 @@
       <option name="project" value="LOCAL" />
       <updated>1724610223391</updated>
     </task>
-    <option name="localTasksCounter" value="6" />
+    <task id="LOCAL-00006" summary="edits">
+      <created>1724662242730</created>
+      <option name="number" value="00006" />
+      <option name="presentableId" value="LOCAL-00006" />
+      <option name="project" value="LOCAL" />
+      <updated>1724662242730</updated>
+    </task>
+    <option name="localTasksCounter" value="7" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">

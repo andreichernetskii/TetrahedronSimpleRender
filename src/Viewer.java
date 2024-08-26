@@ -47,95 +47,129 @@ public class Viewer {
 
                 BufferedImage img = new BufferedImage( getWidth(), getHeight(), BufferedImage.TYPE_INT_ARGB );
 
-                double[] zBuffer = new double[ img.getWidth() * img.getHeight() ];
-
-                Arrays.fill( zBuffer, Double.NEGATIVE_INFINITY );
+                double[] zBuffer = initializeZBuffer( img );
 
                 for ( Triangle triangle : tetrahedron ) {
-                    Vertex vertex1 = transform.transform( triangle.getVertex1() );
-                    Vertex vertex2 = transform.transform( triangle.getVertex2() );
-                    Vertex vertex3 = transform.transform( triangle.getVertex3() );
+                    drawTriangle( transform, img, zBuffer, triangle );
+                }
 
-                    // manual translations
-                    setManualTranslationsFor( vertex1 );
-                    setManualTranslationsFor( vertex2 );
-                    setManualTranslationsFor( vertex3 );
+                graphics2D.drawImage( img, 0, 0, null );
+            }
 
-                    Vertex ab = new Vertex(
-                            vertex2.getX() - vertex1.getX(), vertex2.getY() - vertex1.getY(), vertex2.getZ() - vertex1.getZ()
-                    );
-                    Vertex ac = new Vertex(
-                            vertex3.getX() - vertex1.getX(), vertex3.getY() - vertex1.getY(), vertex3.getZ() - vertex1.getZ()
-                    );
-                    Vertex norm = new Vertex(
-                            ab.getY() * ac.getZ() - ab.getZ() * ac.getY(),
-                            ab.getZ() * ac.getX() - ab.getX() * ac.getZ(),
-                            ab.getX() * ac.getY() - ab.getY() * ac.getX()
-                    );
+            private void drawTriangle( TripleMatrix transform, BufferedImage img, double[] zBuffer, Triangle triangle ) {
+                Vertex vertex1 = transform.transform( triangle.getVertex1() );
+                Vertex vertex2 = transform.transform( triangle.getVertex2() );
+                Vertex vertex3 = transform.transform( triangle.getVertex3() );
 
-                    double normalLength = Math.sqrt( norm.getX() * norm.getX() + norm.getY() * norm.getY() + norm.getZ() * norm.getZ() );
+                // manual translations for vertices
+                translateVertices( vertex1, vertex2, vertex3 );
 
-                    norm.setX( norm.getX() / normalLength );
-                    norm.setY( norm.getY() / normalLength );
-                    norm.setZ( norm.getZ() / normalLength );
+                Vertex norm = calculateNormal( vertex1, vertex2, vertex3 );
 
-                    // angle between triangle normal and light direction
-                    double angleCos = Math.abs( norm.getZ() );
+                // angle between triangle normal and light direction
+                double angleCos = Math.abs( norm.getZ() );
 
 
-                    // computing rectangular bounds for triangle
-                    int minX = ( int ) Math.max(
-                            0,
-                            Math.ceil( Math.min( vertex1.getX(), Math.min( vertex2.getX(), vertex3.getX() ) ) )
-                    );
-                    int maxX = ( int ) Math.min(
-                            img.getWidth() - 1,
-                            Math.floor( Math.max( vertex1.getX(), Math.max( vertex2.getX(), vertex3.getX() ) ) )
-                    );
-                    int minY = ( int ) Math.max(
-                            0,
-                            Math.ceil( Math.min( vertex1.getY(), Math.min( vertex2.getY(), vertex3.getY() ) ) )
-                    );
-                    int maxY = ( int ) Math.min(
-                            img.getHeight() - 1,
-                            Math.floor( Math.max( vertex1.getY(), Math.max( vertex2.getY(), vertex3.getY() ) ) )
-                    );
+                // computing rectangular bounds for triangle
+                int[] bounds = calculateBounds( vertex1, vertex2, vertex3, img );
 
-                    double triangleArea =
-                            ( vertex1.getY() - vertex3.getY() ) * ( vertex2.getX() - vertex3.getX() ) +
-                                    ( vertex2.getY() - vertex3.getY() ) * ( vertex3.getX() - vertex1.getX() );
+                fillTriangle( img, zBuffer, triangle, vertex1, vertex2, vertex3, angleCos, bounds );
+            }
 
-                    for ( int y = minY; y <= maxY; y++ ) {
-                        for ( int x = minX; x <= maxX; x++ ) {
-                            double b1 =
-                                    ( ( y - vertex3.getY() ) * ( vertex2.getX() - vertex3.getX() ) +
-                                            ( vertex2.getY() - vertex3.getY() ) * ( vertex3.getX() - x ) ) / triangleArea;
-                            double b2 =
-                                    ( ( y - vertex1.getY() ) * ( vertex3.getX() - vertex1.getX() ) +
-                                            ( vertex3.getY() - vertex1.getY() ) * ( vertex1.getX() - x ) ) / triangleArea;
-                            double b3 =
-                                    ( ( y - vertex2.getY() ) * ( vertex1.getX() - vertex2.getX() ) +
-                                            ( vertex1.getY() - vertex2.getY() ) * ( vertex2.getX() - x ) ) / triangleArea;
+            private void fillTriangle( BufferedImage img, double[] zBuffer, Triangle triangle, Vertex vertex1, Vertex vertex2, Vertex vertex3, double angleCos, int[] bounds ) {
+                double triangleArea = calcTriangleArea( vertex1, vertex2, vertex3 );
 
-                            if ( b1 >= 0
-                                    && b1 <= 1
-                                    && b2 >= 0
-                                    && b2 <= 1
-                                    && b3 >= 0
-                                    && b3 <= 1 ) {
+                for ( int y = bounds[ 2 ]; y <= bounds[ 3 ]; y++ ) {
+                    for ( int x = bounds[ 0 ]; x <= bounds[ 1 ]; x++ ) {
+                        // create barycentric coordinates
+                        double b1 =
+                                ( ( y - vertex3.getY() ) * ( vertex2.getX() - vertex3.getX() ) +
+                                        ( vertex2.getY() - vertex3.getY() ) * ( vertex3.getX() - x ) ) / triangleArea;
+                        double b2 =
+                                ( ( y - vertex1.getY() ) * ( vertex3.getX() - vertex1.getX() ) +
+                                        ( vertex3.getY() - vertex1.getY() ) * ( vertex1.getX() - x ) ) / triangleArea;
+                        double b3 =
+                                ( ( y - vertex2.getY() ) * ( vertex1.getX() - vertex2.getX() ) +
+                                        ( vertex1.getY() - vertex2.getY() ) * ( vertex2.getX() - x ) ) / triangleArea;
 
-                                double depth = b1 * vertex1.getZ() + b2 * vertex2.getZ() + b3 * vertex3.getZ();
-                                int zIndex = y * img.getWidth() + x;
+                        if ( b1 >= 0
+                                && b1 <= 1
+                                && b2 >= 0
+                                && b2 <= 1
+                                && b3 >= 0
+                                && b3 <= 1 ) {
 
-                                if ( zBuffer[ zIndex ] < depth ) {
-                                    img.setRGB( x, y, getShade( triangle.getColor(), angleCos ).getRGB() );
-                                    zBuffer[ zIndex ] = depth;
-                                }
+                            double depth = b1 * vertex1.getZ() + b2 * vertex2.getZ() + b3 * vertex3.getZ();
+                            int zIndex = y * img.getWidth() + x;
+
+                            if ( zBuffer[ zIndex ] < depth ) {
+                                img.setRGB( x, y, getShade( triangle.getColor(), angleCos ).getRGB() );
+                                zBuffer[ zIndex ] = depth;
                             }
                         }
                     }
-                    graphics2D.drawImage( img, 0, 0, null );
                 }
+            }
+
+            private double calcTriangleArea( Vertex vertex1, Vertex vertex2, Vertex vertex3 ) {
+                return ( vertex1.getY() - vertex3.getY() ) * ( vertex2.getX() - vertex3.getX() ) +
+                        ( vertex2.getY() - vertex3.getY() ) * ( vertex3.getX() - vertex1.getX() );
+            }
+
+            private int[] calculateBounds( Vertex vertex1, Vertex vertex2, Vertex vertex3, BufferedImage img ) {
+                int minX = ( int ) Math.max(
+                        0,
+                        Math.ceil( Math.min( vertex1.getX(), Math.min( vertex2.getX(), vertex3.getX() ) ) )
+                );
+                int maxX = ( int ) Math.min(
+                        img.getWidth() - 1,
+                        Math.floor( Math.max( vertex1.getX(), Math.max( vertex2.getX(), vertex3.getX() ) ) )
+                );
+                int minY = ( int ) Math.max(
+                        0,
+                        Math.ceil( Math.min( vertex1.getY(), Math.min( vertex2.getY(), vertex3.getY() ) ) )
+                );
+                int maxY = ( int ) Math.min(
+                        img.getHeight() - 1,
+                        Math.floor( Math.max( vertex1.getY(), Math.max( vertex2.getY(), vertex3.getY() ) ) )
+                );
+
+                return new int[]{ minX, maxX, minY, maxY };
+            }
+
+            private Vertex calculateNormal( Vertex vertex1, Vertex vertex2, Vertex vertex3 ) {
+                Vertex ab = new Vertex(
+                        vertex2.getX() - vertex1.getX(), vertex2.getY() - vertex1.getY(), vertex2.getZ() - vertex1.getZ()
+                );
+                Vertex ac = new Vertex(
+                        vertex3.getX() - vertex1.getX(), vertex3.getY() - vertex1.getY(), vertex3.getZ() - vertex1.getZ()
+                );
+                Vertex norm = new Vertex(
+                        ab.getY() * ac.getZ() - ab.getZ() * ac.getY(),
+                        ab.getZ() * ac.getX() - ab.getX() * ac.getZ(),
+                        ab.getX() * ac.getY() - ab.getY() * ac.getX()
+                );
+
+                double normalLength = Math.sqrt( norm.getX() * norm.getX() + norm.getY() * norm.getY() + norm.getZ() * norm.getZ() );
+
+                norm.setX( norm.getX() / normalLength );
+                norm.setY( norm.getY() / normalLength );
+                norm.setZ( norm.getZ() / normalLength );
+
+                return norm;
+            }
+
+            private void translateVertices( Vertex... vertices ) {
+                for ( Vertex vertex : vertices ) {
+                    setManualTranslationsFor( vertex );
+                }
+            }
+
+            private double[] initializeZBuffer( BufferedImage img ) {
+                double[] zBuffer = new double[ img.getWidth() * img.getHeight() ];
+                Arrays.fill( zBuffer, Double.NEGATIVE_INFINITY );
+
+                return zBuffer;
             }
 
             private TripleMatrix createTransformMatrix( JSlider headingSlider, JSlider pitchSlider ) {
@@ -153,8 +187,7 @@ public class Viewer {
                         1, 0, 0,
                         0, Math.cos( pitch ), Math.sin( pitch ),
                         0, -Math.sin( pitch ), Math.cos( pitch )
-                   }
-                );
+                } );
             }
 
             private TripleMatrix createHeadingTransform( double heading ) {
@@ -162,8 +195,7 @@ public class Viewer {
                         Math.cos( heading ), 0, Math.sin( heading ),
                         0, 1, 0,
                         -Math.sin( heading ), 0, Math.cos( heading )
-                    }
-                );
+                } );
             }
 
             private Graphics2D initializeGraphics( Graphics graphics ) {
